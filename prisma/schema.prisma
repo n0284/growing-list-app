@@ -23,8 +23,28 @@ model User {
   createdAt   DateTime   @default(now())
 }
 
+// 登録されたことのあるアイテム
 model Item {
+  id    String  @id @default(cuid())
+  name  String  @unique
+  // 関連
+  itemLists    ItemList[]
+  itemHistories ItemHistory[]
+}
+
+// 今リストに登録されているアイテム
+model ItemList {
   id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id])
+  addedAt   DateTime @default(now())
+}
+
+// 登録されたことのあるアイテムの登録履歴
+model ItemHistory {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id])
+  action    String   // "added" or "purchased"
+  timestamp DateTime @default(now())
 }
