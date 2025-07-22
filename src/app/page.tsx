@@ -2,6 +2,7 @@
 
 import AuthButton from "./components/AuthButton";
 import { useEffect, useState } from "react";
+import { signIn, useSession } from "next-auth/react";
 
 type ItemListEntry = {
   id: string;
@@ -14,16 +15,20 @@ type ItemListEntry = {
 };
 
 export default function Home() {
+ const { data: session, status } = useSession();
+console.log("セッション", session, "ステータス", status);
   // GET
   const [items, setItems] = useState<ItemListEntry[]>([]);
 
-  useEffect(() => {
-    const fetchItems = async () => {
-      const res = await fetch("/api/items");
-      const data = await res.json();
-      setItems(data);
-    };
+  const fetchItems = async () => {
+    const res = await fetch("/api/items", {
+      credentials: "include",
+    });
+    const data = await res.json();
+    setItems(data);
+  };
 
+  useEffect(() => {
     fetchItems();
   }, []);
 
@@ -40,6 +45,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
+        credentials: "include",
       });
 
       if (res.ok) {
@@ -47,7 +53,9 @@ export default function Home() {
         setMessage(`登録成功: ${data.name} (ID: ${data.id})`);
         setName("");
         // 登録後に一覧を再取得(GET)
-        const itemsRes = await fetch("/api/items");
+        const itemsRes = await fetch("/api/items", {
+          credentials: "include",
+        });
         const newItems = await itemsRes.json();
         setItems(newItems);
       } else {
@@ -59,6 +67,33 @@ export default function Home() {
     }
   }
 
+  // 削除&r履歴追加
+  async function handlePurchase(itemListId: string) {
+    try {
+      const res = await fetch(`/api/items/${itemListId}/purchase`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error("Purchase failed");
+
+      // 成功したらリストから除外
+      setItems((prev) => prev.filter((item) => item.id !== itemListId));
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  if (status === "loading") return <p>読み込み中...</p>;
+  if (!session) {
+    return (
+      <div className="text-center">
+        <p className="mb-2">ログインしてください</p>
+        <AuthButton />
+      </div>
+    );
+  }
+
   // ページ生成部分
   return (
     <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
@@ -68,7 +103,16 @@ export default function Home() {
         {/* GETしたアイテムを表示する部分 */}
         <ul>
           {items.map((listItem) => (
-            <li key={listItem.id}>{listItem.item.name}</li>
+            <li key={listItem.id}>
+              {listItem.item.name}
+              {/* チェックボックス */}
+              <label>
+                <input
+                  type="checkbox"
+                  onChange={() => handlePurchase(listItem.id)}
+                />
+              </label>
+            </li>
           ))}
         </ul>
         <h1 className="text-xl font-bold mb-4">買い物リストにアイテムを追加</h1>
